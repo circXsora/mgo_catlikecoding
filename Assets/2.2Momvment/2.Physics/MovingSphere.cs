@@ -13,17 +13,33 @@ namespace _2_2
 		bool desiredJump;
 
         [SerializeField, Range(0f, 100f)]
-        float maxAcceleration = 10f;
+        float maxAcceleration = 10f, maxAirAcceleration = 1f;
 
 		[SerializeField, Range(0f, 10f)]
 		float jumpHeight = 2f;
 
 		Rigidbody body;
 
-        void Awake()
+		[SerializeField, Range(0, 5)]
+		int maxAirJumps = 0;
+
+		int jumpPhase;
+
+		[SerializeField, Range(0f, 90f)]
+		float maxGroundAngle = 25f;
+
+		float minGroundDotProduct;
+
+		void OnValidate()
+		{
+			minGroundDotProduct = Mathf.Cos(maxGroundAngle * Mathf.Deg2Rad);
+		}
+
+		void Awake()
         {
             body = GetComponent<Rigidbody>();
-        }
+			OnValidate();
+		}
 		void Update()
 		{
 			Vector2 playerInput;
@@ -37,15 +53,30 @@ namespace _2_2
 				new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;
 		}
 
-		void FixedUpdate()
+		void UpdateState()
 		{
 			velocity = body.velocity;
-            if (desiredJump)
+			if (onGround)
+			{
+				jumpPhase = 0;
+			}
+            else
+            {
+				contactNormal = Vector3.up;
+            }
+		}
+
+		void FixedUpdate()
+		{
+			UpdateState();
+
+			if (desiredJump)
             {
 				desiredJump = false;
 				Jump();
             }
-			float maxSpeedChange = maxAcceleration * Time.deltaTime;
+			float acceleration = onGround ? maxAcceleration : maxAirAcceleration;
+			float maxSpeedChange = acceleration * Time.deltaTime;
 			velocity.x =
 				Mathf.MoveTowards(velocity.x, desiredVelocity.x, maxSpeedChange);
 			velocity.z =
@@ -57,9 +88,16 @@ namespace _2_2
 
 		void Jump()
         {
-            if (onGround)
-            {
-				velocity.y += Mathf.Sqrt(-2f * Physics.gravity.y * jumpHeight);
+            if (onGround || jumpPhase < maxAirJumps)
+			{
+				jumpPhase += 1;
+				float jumpSpeed = Mathf.Sqrt(-2f * Physics.gravity.y * jumpHeight);
+				float alignedSpeed = Vector3.Dot(velocity, contactNormal);
+				if (alignedSpeed > 0f)
+				{
+					jumpSpeed = Mathf.Max(jumpSpeed - alignedSpeed, 0f);
+				}
+				velocity += contactNormal * jumpSpeed;
 			}
 		}
 
@@ -74,12 +112,17 @@ namespace _2_2
 		{
 			EvaluateCollision(collision);
 		}
-
+		Vector3 contactNormal;
 		void EvaluateCollision(Collision collision) {
 			for (int i = 0; i < collision.contactCount; i++)
 			{
 				Vector3 normal = collision.GetContact(i).normal;
-				onGround |= normal.y >= 0.9f;
+
+				if (normal.y >= minGroundDotProduct)
+				{
+					onGround = true;
+					contactNormal = normal;
+				}
 			}
 		}
 	}
