@@ -12,9 +12,7 @@ public class KillZone : MonoBehaviour
         BoxCollider b = c as BoxCollider;
         if (b != null)
         {
-            Gizmos.matrix = Matrix4x4.TRS(
-                transform.position, transform.rotation, transform.lossyScale
-            );
+            Gizmos.matrix = transform.localToWorldMatrix;
             Gizmos.DrawWireCube(b.center, b.size);
             return;
         }
@@ -23,9 +21,7 @@ public class KillZone : MonoBehaviour
         {
             Vector3 scale = transform.lossyScale;
             scale = Vector3.one * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.y), Mathf.Abs(scale.z));
-            Gizmos.matrix = Matrix4x4.TRS(
-                transform.position, transform.rotation, scale
-            );
+            Gizmos.matrix = transform.localToWorldMatrix;
             Gizmos.DrawWireSphere(s.center, s.radius);
             return;
         }
