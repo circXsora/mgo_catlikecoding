@@ -18,7 +18,7 @@ public class AttackRange
             new Vector2(-1,1),
         }
     };
-    static public AttackRange shizi = new AttackRange()
+    static public AttackRange cross = new AttackRange()
     {
         attackablePositions = new Vector2[]
         {
@@ -31,7 +31,7 @@ public class AttackRange
     };
 static public AttackRange[] ranges = new AttackRange[] {
         circle,
-        shizi
+        cross
     };
     public enum AttackRangeType
     {
