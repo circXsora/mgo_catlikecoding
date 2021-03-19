@@ -1,11 +1,38 @@
 ﻿using UnityEngine;
 using static UnityEngine.Mathf;
-public class Graph : MonoBehaviour
+public class GPUGraph : MonoBehaviour
 {
-    public Transform pointPrefab;
     [Range(10, 200)]
     public int resolution = 10;
-    private Transform[] points;
+
+    [SerializeField]
+    ComputeShader computeShader = default;
+    [SerializeField]
+    Material material = default;
+    [SerializeField]
+    Mesh mesh = default;
+
+    static readonly int positionsId = Shader.PropertyToID("_Positions"),
+        resolutionId = Shader.PropertyToID("_Resolution"),
+        stepId = Shader.PropertyToID("_Step"),
+        timeId = Shader.PropertyToID("_Time");
+
+    void UpdateFunctionOnGPU()
+    {
+        float step = 2f / resolution;
+        computeShader.SetInt(resolutionId, resolution);
+        computeShader.SetFloat(stepId, step);
+        computeShader.SetFloat(timeId, Time.time);
+        computeShader.SetBuffer(0, positionsId, positionsBuffer);
+        int groups = Mathf.CeilToInt(resolution / 8f);
+        computeShader.Dispatch(0, groups, groups, 1); 
+
+        var bounds = new Bounds(Vector3.zero, Vector3.one * (2f + 2f / resolution));
+        material.SetBuffer(positionsId, positionsBuffer);
+        material.SetFloat(stepId, step);
+        Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
+    }
+
     public enum FunctionName
     {
         Sine, Sine2D,
@@ -21,19 +48,19 @@ public class Graph : MonoBehaviour
     private static GraphFunction[] functions = {
         SineFunction, Sine2DFunction, MultiSineFunction, MultiSine2DFunction, Ripple, Cylinder, Sphere, Sphere2, Torus
     };
-    private void Awake()
+
+    ComputeBuffer positionsBuffer;
+    void OnEnable()
     {
-        float step = 2f / resolution;
-        Vector3 scale = Vector3.one * step;
-        points = new Transform[resolution * resolution];
-        for (int i = 0; i < points.Length; i++)
-        {
-            Transform point = Instantiate(pointPrefab);
-            point.localScale = scale;
-            point.SetParent(transform, false);
-            points[i] = point;
-        }
+        positionsBuffer = new ComputeBuffer(resolution * resolution, 3 * 4);
     }
+    void OnDisable()
+    {
+        positionsBuffer.Release();
+        positionsBuffer = null;
+    }
+
+    #region Functions
 
     private const float pi = Mathf.PI;
     private static Vector3 SineFunction(float u, float v, float t)
@@ -137,17 +164,17 @@ public class Graph : MonoBehaviour
     {
         if (isRandom)
         {
-            return (FunctionName) UnityEngine.Random.Range(0, functions.Length);
+            return (FunctionName)UnityEngine.Random.Range(0, functions.Length);
         }
         else
         {
             return (int)name < functions.Length - 1 ? name + 1 : 0;
         }
     }
+    #endregion
 
-    public static Vector3 Morph(
-    float u, float v, float t, GraphFunction from, GraphFunction to, float progress
-)
+    public static Vector3 Morph(float u, float v, float t,
+        GraphFunction from, GraphFunction to, float progress)
     {
         return Vector3.LerpUnclamped(from(u, v, t), to(u, v, t), Mathf.SmoothStep(0f, 1f, progress));
     }
@@ -179,49 +206,7 @@ public class Graph : MonoBehaviour
             transitionFunction = function;
             function = GetNextFunctionName(function);
         }
-        if (transitioning)
-        {
-            UpdateFunctionTransition();
-        }
-        else
-        {
-            UpdateFunction();
-        }
-    }
-    void UpdateFunctionTransition()
-    {
-        GraphFunction
-            from = functions[(int)transitionFunction],
-            to = functions[(int)function];
-        float progress = duration / transitionDuration;
-        float time = Time.time;
-        float step = 2f / resolution;
-        float v = 0.5f * step - 1f;
-        for (int i = 0, z = 0; z < resolution; z++)
-        {
-            v = (z + 0.5f) * step - 1f;
-            for (int x = 0; x < resolution; x++, i++)
-            {
-                float u = (x + 0.5f) * step - 1f;
-                points[i].localPosition = Morph(
-                    u, v, time, from, to, progress
-                );
-            }
-        }
-    }
-    private void UpdateFunction()
-    {
-        float t = Time.time;
-        GraphFunction f = functions[(int)function];
-        float step = 2f / resolution;
-        for (int i = 0, z = 0; z < resolution; z++)
-        {
-            float v = (z + 0.5f) * step - 1f;
-            for (int x = 0; x < resolution; x++, i++)
-            {
-                float u = (x + 0.5f) * step - 1f;
-                points[i].localPosition = f(u, v, t);
-            }
-        }
+
+        UpdateFunctionOnGPU();
     }
 }
