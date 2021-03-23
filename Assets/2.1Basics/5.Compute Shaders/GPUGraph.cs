@@ -2,7 +2,7 @@
 using static UnityEngine.Mathf;
 public class GPUGraph : MonoBehaviour
 {
-    [Range(10, 200)]
+    [Range(10, 2000)]
     public int resolution = 10;
 
     [SerializeField]
