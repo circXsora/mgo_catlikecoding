@@ -2,7 +2,8 @@
 using static UnityEngine.Mathf;
 public class GPUGraph : MonoBehaviour
 {
-    [Range(10, 2000)]
+    const int maxResolution = 1000;
+    [Range(10, maxResolution)]
     public int resolution = 10;
 
     [SerializeField]
@@ -15,7 +16,8 @@ public class GPUGraph : MonoBehaviour
     static readonly int positionsId = Shader.PropertyToID("_Positions"),
         resolutionId = Shader.PropertyToID("_Resolution"),
         stepId = Shader.PropertyToID("_Step"),
-        timeId = Shader.PropertyToID("_Time");
+        timeId = Shader.PropertyToID("_Time"),
+        transitionProgressId = Shader.PropertyToID("_TransitionProgress");
 
     void UpdateFunctionOnGPU()
     {
@@ -23,36 +25,54 @@ public class GPUGraph : MonoBehaviour
         computeShader.SetInt(resolutionId, resolution);
         computeShader.SetFloat(stepId, step);
         computeShader.SetFloat(timeId, Time.time);
-        computeShader.SetBuffer(0, positionsId, positionsBuffer);
+        if (transitioning)
+        {
+            computeShader.SetFloat(
+                transitionProgressId,
+                Mathf.SmoothStep(0f, 1f, duration / transitionDuration)
+            );
+        }
+        var kernelIndex = (int) function +
+            (int)(transitioning ? transitionFunction : function) * FunctionCount;
+        computeShader.SetBuffer(kernelIndex, positionsId, positionsBuffer);
         int groups = Mathf.CeilToInt(resolution / 8f);
-        computeShader.Dispatch(0, groups, groups, 1); 
+        computeShader.Dispatch(kernelIndex, groups, groups, 1); 
 
         var bounds = new Bounds(Vector3.zero, Vector3.one * (2f + 2f / resolution));
         material.SetBuffer(positionsId, positionsBuffer);
         material.SetFloat(stepId, step);
-        Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, positionsBuffer.count);
+        Graphics.DrawMeshInstancedProcedural(mesh, 0, material, bounds, resolution * resolution);
     }
 
+    //public enum FunctionName
+    //{
+    //    Sine, Sine2D,
+    //    MultiSine, MultiSine2D,
+    //    Ripple,
+    //    Cylinder,
+    //    Sphere,
+    //    Sphere2,
+    //    Torus
+    //}
     public enum FunctionName
     {
-        Sine, Sine2D,
-        MultiSine, MultiSine2D,
-        Ripple,
-        Cylinder,
-        Sphere,
-        Sphere2,
-        Torus
+        Wave = 0,
+        MultiWave = 1,
+        Ripple = 2,
+        Sphere = 3,
+        Torus = 4
     }
     public FunctionName function;
     public bool isRandom = true;
     private static GraphFunction[] functions = {
         SineFunction, Sine2DFunction, MultiSineFunction, MultiSine2DFunction, Ripple, Cylinder, Sphere, Sphere2, Torus
     };
+    public static int FunctionCount => 5;
 
     ComputeBuffer positionsBuffer;
     void OnEnable()
     {
-        positionsBuffer = new ComputeBuffer(resolution * resolution, 3 * 4);
+        positionsBuffer = new ComputeBuffer(maxResolution * maxResolution, 3 * 4);
     }
     void OnDisable()
     {
@@ -164,11 +184,11 @@ public class GPUGraph : MonoBehaviour
     {
         if (isRandom)
         {
-            return (FunctionName)UnityEngine.Random.Range(0, functions.Length);
+            return (FunctionName)UnityEngine.Random.Range(0, FunctionCount);
         }
         else
         {
-            return (int)name < functions.Length - 1 ? name + 1 : 0;
+            return (int)name < FunctionCount - 1 ? name + 1 : 0;
         }
     }
     #endregion
