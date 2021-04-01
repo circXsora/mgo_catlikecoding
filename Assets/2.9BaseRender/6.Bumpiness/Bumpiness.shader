@@ -2,13 +2,14 @@
 
 // Upgrade NOTE: replaced 'mul(UNITY_MATRIX_MVP,*)' with 'UnityObjectToClipPos(*)'
 
-Shader "Custom/My Second Lighting Shader"
+Shader "Custom/Bumpiness"
 {
     Properties
     {
         _Tint ("Color", Color) = (1,1,1,1)
         _MainTex ("Texture", 2D) = "white" {}
         _Smoothness ("Smoothness", Range(0, 1)) = 0.5
+        [NoScaleOffset] _HeightMap ("Heights", 2D) = "gray" {}
         [Gamma]_Metallic ("Metallic", Range(0, 1)) = 0
 
         _SpecularTint ("Specular", Color) = (1,1,1,1)
