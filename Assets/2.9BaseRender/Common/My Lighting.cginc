@@ -131,8 +131,9 @@
             }
 
             float4 MyFragmentProgram(Interpolators i) : SV_TARGET {
+                #if defined(NORMALMAP)
                 InitializeFragmentNormalFromNormal(i);
-
+                #endif
                 float3 viewDir = normalize(_WorldSpaceCameraPos - i.worldPos);
                 float3 albedo = tex2D(_MainTex, i.uv.xy).rgb * _Tint.rgb;
 	            albedo *= tex2D(_DetailTex, i.uv.zw) * unity_ColorSpaceDouble;
