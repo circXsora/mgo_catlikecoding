@@ -38,8 +38,8 @@ Material:
     m_Floats:
     - _BumpScale: 1
     - _DetailBumpScale: 1
-    - _Metallic: 0
-    - _Smoothness: 0.5
+    - _Metallic: 0.78
+    - _Smoothness: 0.32
     m_Colors:
-    - _SpecularTint: {r: 1, g: 1, b: 1, a: 1}
+    - _SpecularTint: {r: 0.8962264, g: 0.33819866, b: 0.33819866, a: 1}
     - _Tint: {r: 1, g: 1, b: 1, a: 1}

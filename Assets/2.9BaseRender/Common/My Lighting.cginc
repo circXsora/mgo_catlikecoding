@@ -1,18 +1,18 @@
             #if !defined(MY_LIGHTING_INCLUDED)
 
             #define MY_LIGHTING_INCLUDED
-            #include "AutoLight.cginc"
             #include "UnityPBSLighting.cginc"
+            #include "AutoLight.cginc"
 
             struct VertexData {
-                float4 position : POSITION;
+                float4 vertex : POSITION;
                 float3 normal : NORMAL;
                 float4 tangent : TANGENT;
                 float2 uv : TEXCOORD0;
             };
 
             struct Interpolators {
-                float4 position : SV_POSITION;
+                float4 pos : SV_POSITION;
                 float4 uv : TEXCOORD0;
                 float3 normal : TEXCOORD1;
 
@@ -25,8 +25,10 @@
 
 	            float3 worldPos : TEXCOORD4;
 
+                SHADOW_COORDS(5)
+
 	            #if defined(VERTEXLIGHT_ON)
-	            	float3 vertexLightColor : TEXCOORD5;
+	            	float3 vertexLightColor : TEXCOORD6;
 	            #endif
             };
 
@@ -66,9 +68,13 @@
 	            	i.tangent = UnityObjectToWorldDir(v.tangent.xyz);
 	            	i.binormal = CreateBinormal(i.normal, i.tangent, v.tangent.w);
 	            #endif
-                i.position = UnityObjectToClipPos(v.position);
-                i.worldPos = mul(unity_ObjectToWorld, v.position);
+                i.pos = UnityObjectToClipPos(v.vertex);
+                i.worldPos = mul(unity_ObjectToWorld, v.vertex);
+
+                TRANSFER_SHADOW(i);
+
                 ComputeVertexLightColor(i);
+
                 return i;
             }
 
@@ -79,7 +85,9 @@
                 #else
                     light.dir = _WorldSpaceLightPos0.xyz;
                 #endif
-	            UNITY_LIGHT_ATTENUATION(attenuation, 0, i.worldPos);
+
+                UNITY_LIGHT_ATTENUATION(attenuation, i, i.worldPos);
+
 	            light.color = _LightColor0.rgb * attenuation;
 	            light.ndotl = DotClamped(i.normal, light.dir);
 	            return light;
