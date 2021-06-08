@@ -103,6 +103,8 @@
 	            #endif
                 #if defined(FORWARD_BASE_PASS)
                     indirectLight.diffuse += max(0, ShadeSH9(float4(i.normal, 1)));
+                    float4 envSample = UNITY_SAMPLE_TEXCUBE(unity_SpecCube0, i.normal);
+                    indirectLight.specular = DecodeHDR(envSample, unity_SpecCube0_HDR);
                 #endif
 	            return indirectLight;
             }
