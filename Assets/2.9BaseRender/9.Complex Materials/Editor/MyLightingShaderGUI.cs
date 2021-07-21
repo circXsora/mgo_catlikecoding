@@ -30,11 +30,17 @@ public class MyLightingShaderGUI : ShaderGUI
     {
         if (state)
         {
-            target.EnableKeyword(keyword);
+            foreach (Material m in editor.targets)
+            {
+                m.EnableKeyword(keyword);
+            }
         }
         else
         {
-            target.DisableKeyword(keyword);
+            foreach (Material m in editor.targets)
+            {
+                m.DisableKeyword(keyword);
+            }
         }
     }
 
@@ -76,6 +82,8 @@ public class MyLightingShaderGUI : ShaderGUI
         DoSmoothness();
         DoEmission();
         DoNormals();
+        DoDetailMask();
+        DoOcclusion();
         editor.TextureScaleOffsetProperty(mainTex);
 
     }
@@ -83,8 +91,41 @@ public class MyLightingShaderGUI : ShaderGUI
     void DoNormals()
     {
         MaterialProperty map = FindProperty("_NormalMap");
+        Texture tex = map.textureValue;
+        EditorGUI.BeginChangeCheck();
         editor.TexturePropertySingleLine(MakeLabel(map), map,
-            map.textureValue ? FindProperty("_BumpScale") : null);
+            tex ? FindProperty("_BumpScale") : null);
+        if (EditorGUI.EndChangeCheck() && tex != map.textureValue)
+        {
+            SetKeyword("_NORMAL_MAP", map.textureValue);
+        }
+    }
+
+    void DoOcclusion()
+    {
+        MaterialProperty map = FindProperty("_OcclusionMap");
+        EditorGUI.BeginChangeCheck();
+        editor.TexturePropertySingleLine(
+            MakeLabel(map, "Occlusion (G)"), map,
+            map.textureValue ? FindProperty("_OcclusionStrength") : null
+        );
+        if (EditorGUI.EndChangeCheck())
+        {
+            SetKeyword("_OCCLUSION_MAP", map.textureValue);
+        }
+    }
+
+    void DoDetailMask()
+    {
+        MaterialProperty mask = FindProperty("_DetailMask");
+        EditorGUI.BeginChangeCheck();
+        editor.TexturePropertySingleLine(
+            MakeLabel(mask, "Detail Mask (A)"), mask
+        );
+        if (EditorGUI.EndChangeCheck())
+        {
+            SetKeyword("_DETAIL_MASK", mask.textureValue);
+        }
     }
 
     void DoMetallic()
@@ -144,9 +185,14 @@ public class MyLightingShaderGUI : ShaderGUI
         GUILayout.Label("Secondary Maps", EditorStyles.boldLabel);
 
         MaterialProperty detailTex = FindProperty("_DetailTex");
+        EditorGUI.BeginChangeCheck();
         editor.TexturePropertySingleLine(
             MakeLabel(detailTex, "Albedo (RGB) multiplied by 2"), detailTex
         );
+        if (EditorGUI.EndChangeCheck())
+        {
+            SetKeyword("_DETAIL_ALBEDO_MAP", detailTex.textureValue);
+        }
         DoSecondaryNormals();
         editor.TextureScaleOffsetProperty(detailTex);
     }
@@ -154,9 +200,14 @@ public class MyLightingShaderGUI : ShaderGUI
     void DoSecondaryNormals()
     {
         MaterialProperty map = FindProperty("_DetailNormalMap");
+        EditorGUI.BeginChangeCheck();
         editor.TexturePropertySingleLine(
             MakeLabel(map), map,
             map.textureValue ? FindProperty("_DetailBumpScale") : null
         );
+        if (EditorGUI.EndChangeCheck())
+        {
+            SetKeyword("_DETAIL_NORMAL_MAP", map.textureValue);
+        }
     }
 }
