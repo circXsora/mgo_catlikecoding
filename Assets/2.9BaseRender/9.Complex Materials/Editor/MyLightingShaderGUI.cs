@@ -1,8 +1,53 @@
 ﻿using UnityEngine;
 using UnityEditor;
+using UnityEngine.Rendering;
 
 public class MyLightingShaderGUI : ShaderGUI
 {
+    enum RenderingMode
+    {
+        Opaque, Cutout, Fade, Transparent
+    }
+
+    struct RenderingSettings
+    {
+        public RenderQueue queue;
+        public string renderType;
+        public BlendMode srcBlend, dstBlend;
+        public bool zWrite;
+
+        public static RenderingSettings[] modes = {
+            new RenderingSettings() {
+                queue = RenderQueue.Geometry,
+                renderType = "",
+                srcBlend = BlendMode.One,
+                dstBlend = BlendMode.Zero,
+                zWrite = true
+            },
+            new RenderingSettings() {
+                queue = RenderQueue.AlphaTest,
+                renderType = "TransparentCutout",
+                srcBlend = BlendMode.One,
+                dstBlend = BlendMode.Zero,
+                zWrite = true
+            },
+            new RenderingSettings() {
+                queue = RenderQueue.Transparent,
+                renderType = "Transparent",
+                srcBlend = BlendMode.SrcAlpha,
+                dstBlend = BlendMode.OneMinusSrcAlpha,
+                zWrite = false
+            },
+			new RenderingSettings() {
+				queue = RenderQueue.Transparent,
+				renderType = "Transparent",
+				srcBlend = BlendMode.One,
+				dstBlend = BlendMode.OneMinusSrcAlpha,
+				zWrite = false
+			}
+        };
+    }
+
     enum SmoothnessSource
     {
         Uniform, Albedo, Metallic
@@ -11,12 +56,14 @@ public class MyLightingShaderGUI : ShaderGUI
     Material target;
     MaterialEditor editor;
     MaterialProperty[] properties;
+    bool shouldShowAlphaCutoff;
 
     public override void OnGUI(MaterialEditor editor, MaterialProperty[] properties)
     {
         this.target = editor.target as Material;
         this.editor = editor;
         this.properties = properties;
+        DoRenderingMode();
         DoMain();
         DoSecondary();
 
@@ -84,10 +131,63 @@ public class MyLightingShaderGUI : ShaderGUI
         DoNormals();
         DoDetailMask();
         DoOcclusion();
+        if (shouldShowAlphaCutoff)
+        {
+            DoAlphaCutoff();
+        }
+
         editor.TextureScaleOffsetProperty(mainTex);
 
     }
 
+    void DoRenderingMode()
+    {
+        RenderingMode mode = RenderingMode.Opaque;
+        shouldShowAlphaCutoff = false;
+        if (IsKeywordEnabled("_RENDERING_CUTOUT"))
+        {
+            shouldShowAlphaCutoff = true;
+            mode = RenderingMode.Cutout;
+        }
+        else if (IsKeywordEnabled("_RENDERING_FADE"))
+        {
+            mode = RenderingMode.Fade;
+        }		
+        else if (IsKeywordEnabled("_RENDERING_TRANSPARENT")) {
+			mode = RenderingMode.Transparent;
+		}
+
+        EditorGUI.BeginChangeCheck();
+        mode = (RenderingMode)EditorGUILayout.EnumPopup(
+            MakeLabel("Rendering Mode"), mode
+        );
+        if (EditorGUI.EndChangeCheck())
+        {
+            RecordAction("Rendering Mode");
+            SetKeyword("_RENDERING_CUTOUT", mode == RenderingMode.Cutout);
+            SetKeyword("_RENDERING_FADE", mode == RenderingMode.Fade);
+			SetKeyword(
+				"_RENDERING_TRANSPARENT", mode == RenderingMode.Transparent
+			);
+            RenderingSettings settings = RenderingSettings.modes[(int)mode];
+            foreach (Material m in editor.targets)
+            {
+                m.renderQueue = (int)settings.queue;
+                m.SetOverrideTag("RenderType", settings.renderType);
+                m.SetInt("_SrcBlend", (int)settings.srcBlend);
+                m.SetInt("_DstBlend", (int)settings.dstBlend);
+                m.SetInt("_ZWrite", settings.zWrite?1:0);
+            }
+        }
+    }
+
+    void DoAlphaCutoff()
+    {
+        MaterialProperty slider = FindProperty("_AlphaCutoff");
+        EditorGUI.indentLevel += 2;
+        editor.ShaderProperty(slider, MakeLabel(slider));
+        EditorGUI.indentLevel -= 2;
+    }
     void DoNormals()
     {
         MaterialProperty map = FindProperty("_NormalMap");
